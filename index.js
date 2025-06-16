@@ -4,8 +4,15 @@ import { getEmbedding } from './utils/openai.js'; // ✅ OpenAI embedding helper
 
 const app = express();
 app.use(express.json()); // Critical: enables JSON body parsing
+
+// Uptime endpoint
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
+});
+
+// Dummy GET /recall handler for UptimeRobot
+app.get('/recall', (req, res) => {
+  res.status(200).send('Memory agent is awake.');
 });
 
 let pineconeIndex;
