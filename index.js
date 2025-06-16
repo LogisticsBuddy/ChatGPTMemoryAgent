@@ -4,6 +4,9 @@ import { getEmbedding } from './utils/openai.js'; // ✅ OpenAI embedding helper
 
 const app = express();
 app.use(express.json()); // Critical: enables JSON body parsing
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 
 let pineconeIndex;
 
