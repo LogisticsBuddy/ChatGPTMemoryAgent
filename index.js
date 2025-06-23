@@ -5,7 +5,7 @@ import { getEmbedding } from './utils/openai.js'; // ✅ OpenAI embedding helper
 const app = express();
 app.use(express.json()); // Critical: enables JSON body parsing
 
-// Uptime / health endpoints
+// Health check endpoints
 app.get('/health', (_req, res) => res.status(200).send('OK'));
 app.get('/recall', (_req, res) => res.status(200).send('Memory agent is awake.'));
 
@@ -20,10 +20,10 @@ let pineconeIndex;
       throw new Error('Pinecone index failed to initialize');
     }
 
-    // Store memory
+    // Store memory with metadata and unique ID
     app.post('/remember', async (req, res) => {
       try {
-        const { id, text } = req.body;
+        const { id, text, metadata = {} } = req.body;
         if (!id || !text) {
           return res.status(400).json({ error: 'Missing id or text in request body' });
         }
@@ -31,9 +31,13 @@ let pineconeIndex;
         const vector = await getEmbedding(text);
         await pineconeIndex.upsert([
           {
-            id,
+            id: `${id}-${Date.now()}`,
             values: vector,
-            metadata: { text }
+            metadata: {
+              text,
+              user_id: id,
+              ...metadata
+            }
           }
         ]);
 
@@ -44,19 +48,22 @@ let pineconeIndex;
       }
     });
 
-    // Recall memory
+    // Recall memory with user filter
     app.post('/recall', async (req, res) => {
       try {
-        const { query } = req.body;
-        if (!query) {
-          return res.status(400).json({ error: 'Missing query in request body' });
+        const { id, query } = req.body;
+        if (!id || !query) {
+          return res.status(400).json({ error: 'Missing id or query in request body' });
         }
 
         const vector = await getEmbedding(query);
         const results = await pineconeIndex.query({
-          topK: 3,
+          topK: 5,
           vector,
-          includeMetadata: true
+          includeMetadata: true,
+          filter: {
+            user_id: { $eq: id }
+          }
         });
 
         const matches = results.matches?.map(m => m.metadata.text) ?? [];
